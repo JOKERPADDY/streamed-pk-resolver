@@ -7,7 +7,9 @@
 Turn any match + server selection into a playable `m3u8` — replaying the [embed.st](https://embed.st)
 handshake, decrypting the GOAT `/fetch` response with `lock.wasm`, and serving a local HLS proxy that
 injects the required `Referer` while unwrapping **WEBP** segments into raw **MPEG-TS**.
+
 **Based on:** [sharoon7171/streamed-pk-hls-stream-resolver](https://github.com/sharoon7171/streamed-pk-hls-stream-resolver)
+
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)

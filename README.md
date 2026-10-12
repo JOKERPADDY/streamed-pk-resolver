@@ -22,7 +22,7 @@ injects the required `Referer` while unwrapping **WEBP** segments into raw **MPE
 </div>
 
 > [!IMPORTANT]
-> **Based on:** [sharoon7171/streamed-pk-hls-stream-resolver](https://github.com/sharoon7171/streamed-pk-hls-stream-resolver)
+> **Based on:** [sharoon7171/streamed-pk-hls-stream-resolver](https://github.com/sharoon7171/streamed-pk-hls-stream-resolver).
 > This project is for research, interoperability, and personal playback only. Respect upstream ToS, copyright, and local law — see the [full disclaimer](#-disclaimer).
 
 ## ✨ Features

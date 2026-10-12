@@ -1,0 +1,18 @@
+{
+  "name": "streamed-pk-hls-stream-resolver",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && cp src/client/index.html src/client/styles.css dist/client/ && rm -rf dist/goat/vendor && cp -R src/goat/vendor dist/goat/vendor",
+    "start": "npm run build && node dist/server/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit"
+  },
+  "dependencies": {
+    "big-integer": "^1.6.52",
+    "happy-dom": "^20.14.5",
+    "impit": "^0.14.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "typescript": "^7.0.2"
+  }
+}

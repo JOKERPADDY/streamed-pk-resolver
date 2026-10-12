@@ -1,0 +1,13 @@
+services:
+  streamed-pk-resolver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamed-pk-resolver
+    ports:
+      - "3004:3000"
+    environment:
+      - PORT=3000
+      - STREAMED_ORIGIN=https://streamed.pk
+    restart: unless-stopped
+

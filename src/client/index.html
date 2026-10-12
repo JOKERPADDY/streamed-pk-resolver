@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Streamed.pk HLS resolver — live sports, WASM unlock, instant play.">
+  <title>Streamed Resolver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__logo">Streamed</span>
+        <span class="topbar__tag">Live + Channels</span>
+      </div>
+      <div class="topbar__aside">
+        <div class="status" aria-live="polite">
+          <span class="status__dot" aria-hidden="true"></span>
+          <span id="live-meta" class="status__text">—</span>
+        </div>
+        <button type="button" id="refresh-button" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <nav id="sport-tabs" class="sports" role="tablist" aria-label="Sport"></nav>
+    <p id="error-message" class="banner" hidden></p>
+
+    <div class="workspace">
+      <aside class="panel rail" aria-label="Live matches and channels">
+        <div class="panel__head">
+          <span class="panel__label">1 · Matches</span>
+          <span class="panel__hint">Live + channels</span>
+          <span id="match-count" class="panel__count">0</span>
+        </div>
+        <ul id="match-list" class="matches"></ul>
+      </aside>
+
+      <section class="stage" aria-label="Player">
+        <div class="stage__bar">
+          <div class="stage__titles">
+            <p id="stream-kicker" class="stage__kicker">Ready</p>
+            <h1 id="stream-title" class="stage__title">Choose a Match to Start</h1>
+          </div>
+          <ul class="timing">
+            <li class="timing__item">
+              <span class="timing__k">Resolve</span>
+              <span id="timing-resolve" class="timing__v">—</span>
+            </li>
+            <li class="timing__item">
+              <span class="timing__k">First Frame</span>
+              <span id="timing-play" class="timing__v">—</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="stage__shell">
+          <div class="screen">
+            <div class="screen__idle">
+              <p class="screen__idle-brand">Streamed</p>
+              <p class="screen__idle-copy">Match on the left. Server on the right. Play here.</p>
+            </div>
+            <video id="video-element" class="screen__video" controls playsinline autoplay hidden></video>
+          </div>
+
+          <div id="exports" class="exports" hidden>
+            <div class="export">
+              <span class="export__k">Direct</span>
+              <div class="export__row">
+                <input id="export-direct-url" readonly>
+                <button type="button" class="btn btn--soft" data-copy="export-direct-url">Copy</button>
+              </div>
+            </div>
+            <div class="export">
+              <span class="export__k">Proxied</span>
+              <div class="export__row">
+                <input id="export-proxied-url" readonly>
+                <button type="button" class="btn btn--soft" data-copy="export-proxied-url">Copy</button>
+              </div>
+            </div>
+            <div class="export">
+              <span class="export__k">VLC</span>
+              <div class="export__row">
+                <input id="export-vlc-url" readonly>
+                <button type="button" class="btn btn--soft" data-copy="export-vlc-url">Copy</button>
+              </div>
+            </div>
+            <div class="export">
+              <span class="export__k">mpv</span>
+              <div class="export__row">
+                <input id="export-mpv-url" readonly>
+                <button type="button" class="btn btn--soft" data-copy="export-mpv-url">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside id="stream-panel" class="panel servers" aria-label="Stream servers">
+        <div class="panel__head">
+          <span class="panel__label">2 · Servers</span>
+          <span class="panel__hint">Then play</span>
+          <span id="stream-count" class="panel__count">0</span>
+        </div>
+        <div id="stream-empty" class="panel__empty">Pick a match on the left to load servers.</div>
+        <div id="stream-list" class="streams__grid" hidden></div>
+      </aside>
+    </div>
+  </div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

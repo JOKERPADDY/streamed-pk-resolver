@@ -17,7 +17,7 @@ injects the required `Referer` while unwrapping **WEBP** segments into raw **MPE
 
 [Features](#-features) · [Quick Start](#-quick-start) · [Docker](#-docker) · [Usage](#-usage) · [How It Works](#-how-it-works) · [API](#-http-api) · [Disclaimer](#-disclaimer)
 
-<p><img src="docs/screenshot.png" alt="App screenshot" width="800" /></p>
+<p><img src="[docs/screenshot.png](https://raw.githubusercontent.com/Lunatic16/streamed-pk-resolver/refs/heads/main/docs/screenshot.png)" alt="App screenshot" width="800" /></p>
 
 </div>
 
@@ -47,7 +47,7 @@ injects the required `Referer` while unwrapping **WEBP** segments into raw **MPE
 
 ```bash
 git clone https://github.com/Lunatic16/streamed-pk-resolver.git
-cd <your-repo>
+cd streamed-pk-resolver
 npm install
 npm start
 ```

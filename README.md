@@ -3,6 +3,7 @@
 # 📡 Streamed.pk HLS Stream Resolver
 
 **Self-hosted HLS stream resolver for [streamed.pk](https://streamed.pk) live sports.**
+
 **Based on:** [sharoon7171/streamed-pk-hls-stream-resolver](https://github.com/sharoon7171/streamed-pk-hls-stream-resolver)
 
 Turn any match + server selection into a playable `m3u8` — replaying the [embed.st](https://embed.st)

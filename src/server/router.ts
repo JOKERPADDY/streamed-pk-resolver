@@ -1,4 +1,5 @@
 import { handleMatches, handleSports, handleStreams } from "../handlers/catalog.js";
+import { handlePlaylist } from "../handlers/playlist.js";
 import { resolveStream, type ResolveInput } from "../handlers/resolve.js";
 import { proxyHls } from "../proxy/hls.js";
 import { serveClient } from "./static.js";
@@ -8,6 +9,7 @@ export async function handleRequest(request: Request): Promise<Response> {
 
   try {
     if (url.pathname === "/api/hls") return proxyHls(request);
+    if (url.pathname === "/api/playlist") return handlePlaylist(request);
     if (url.pathname === "/api/sports") return handleSports();
     if (url.pathname === "/api/matches") {
       return handleMatches(url.searchParams.get("sport"), url.searchParams.get("scope"));

@@ -1,5 +1,7 @@
 import { Readable } from "node:stream";
 
+import { makeSlot } from "../goat/resolve.js";
+import { unlockSlot } from "../goat/unlock.js";
 import { relayLink } from "./media.js";
 import { pull, pullGoatSegmentStream } from "./pull.js";
 
@@ -29,11 +31,31 @@ function rewrite(text: string, base: string, referer: string, origin: string): s
 
 export async function proxyHls(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const target = url.searchParams.get("url");
-  const referer = url.searchParams.get("referer");
-  if (!target || !referer) return new Response("url and referer required", { status: 400, headers: cors });
+  const refererParam = url.searchParams.get("referer");
+  const source = url.searchParams.get("source");
+  const id = url.searchParams.get("id");
+  const streamParam = url.searchParams.get("stream");
 
   try {
+    let target = url.searchParams.get("url");
+    let referer = refererParam;
+
+    // Slot mode: playlist entries point here so tokens are minted fresh at
+    // tune-in time. The first playlist fetch resolves the slot; every URI it
+    // returns is rewritten to url-mode, so refreshes stay cheap.
+    if (!target && source && id && streamParam) {
+      const unlocked = await unlockSlot(makeSlot(source, id, streamParam));
+      target = unlocked.m3u8;
+      referer = referer ?? unlocked.referer;
+    }
+
+    if (!target || !referer) {
+      return new Response("url and referer (or source, id, and stream) required", {
+        status: 400,
+        headers: cors,
+      });
+    }
+
     if (target.includes(".m3u8")) {
       const raw = await pull(target, referer);
       if (!raw.length) throw new Error("empty upstream body");

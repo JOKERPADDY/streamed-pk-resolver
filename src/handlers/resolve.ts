@@ -1,8 +1,7 @@
 import { findMatch, listStreams } from "../api/streamed.js";
-import { embedOrigin } from "../config/site.js";
-import { unlockGolf } from "../goat/golf.js";
-import { makeSlot, resolveGoat } from "../goat/resolve.js";
-import { relayLink, selectMediaPlaylist } from "../proxy/media.js";
+import { makeSlot } from "../goat/resolve.js";
+import { unlockSlot } from "../goat/unlock.js";
+import { relayLink } from "../proxy/media.js";
 import type { ResolveOk, ResolveResult, Slot, StreamLink } from "../types/models.js";
 
 export type ResolveInput = {
@@ -58,10 +57,7 @@ export async function resolveStream(input: ResolveInput, origin: string): Promis
   }
 
   try {
-    const unlocked =
-      packed.slot.source === "golf" ? await unlockGolf(packed.slot) : await resolveGoat(packed.slot);
-    const referer = `${embedOrigin}/`;
-    const m3u8 = await selectMediaPlaylist(unlocked, referer);
+    const { m3u8, referer } = await unlockSlot(packed.slot);
     const result: ResolveOk = {
       ok: true,
       source: packed.slot.source,

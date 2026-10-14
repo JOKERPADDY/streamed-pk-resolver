@@ -108,6 +108,13 @@ input {
   flex-shrink: 0;
 }
 
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -197,6 +204,12 @@ input {
   color: var(--ok);
   border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
   background: var(--ok-dim);
+}
+
+.btn.err {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 40%, var(--line));
+  background: var(--err-dim);
 }
 
 .btn:focus-visible,
@@ -784,6 +797,10 @@ input {
 }
 
 @media (max-width: 1040px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(240px, 40vh) minmax(220px, 34vh);
@@ -812,6 +829,12 @@ input {
   }
 
   .topbar__aside {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .topbar__actions {
     gap: 8px;
   }
 

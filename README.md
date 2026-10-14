@@ -33,8 +33,10 @@ injects the required `Referer` while unwrapping **WEBP** segments into raw **MPE
 - 🧩 **WEBP → MPEG-TS unwrap** — streams raw TS out of the RIFF/EXIF wrapper without buffering whole segments
 - 🚰 **Referer-aware HLS proxy** — local `/api/hls` endpoint rewrites playlists and injects `Referer`/`Origin` for players that can't set headers
 - 🖥️ **Built-in player** — hls.js with official-embed buffer tuning (`maxBufferSize: 0`, `liveSyncDurationCount: 7`)
-- 📋 **External player exports** — copy-paste VLC and mpv commands with the right referrer flags
+- 📋 **External player exports** — copy-paste VLC and mpv commands that point at the local relay, no referrer flags needed
 - 🏟️ **Live catalog** — browse sports, live matches, and ranked HD/SD servers straight from streamed.pk
+- 📺 **Dynamic IPTV M3U8 playlist** — one-click download or copy a live `.m3u` of every listed match/channel; entries unlock fresh at tune-in time
+- 🔧 **Copy that works everywhere** — clipboard with a `execCommand` fallback, so copy buttons work over plain-HTTP LAN access from desktop or mobile
 - ⚡ **Streaming pipes** — responses are piped, so first-byte latency tracks upstream TTFB
 
 ## 🚀 Quick Start
@@ -121,15 +123,28 @@ Flow is always **match → server → play**. Resolve does not run until a serve
 Example external playback (values come from the export panel after resolve):
 
 ```bash
-vlc --http-referrer 'https://embed.st/' 'https://lb….strmd.st/…/high/mono.m3u8'
-mpv --referrer='https://embed.st/' 'https://lb….strmd.st/…/high/mono.m3u8'
+vlc 'http://localhost:3000/api/hls?url=…&referer=https%3A%2F%2Fembed.st%2F'
+mpv 'http://localhost:3000/api/hls?url=…&referer=https%3A%2F%2Fembed.st%2F'
 ```
+
+The VLC and mpv exports use the **Proxied** relay URL — the local server injects the embed `Referer`/`Origin` itself, so the commands work in any player without flags. The **Direct** URL stays available for players that can send the embed `Referer` on their own.
 
 > [!TIP]
 > If your player can't set `Referer` headers, use the **Proxied** `/api/hls` link instead — the local server attaches the headers and rewrites nested playlist and segment URLs for you.
 
 > [!NOTE]
 > Stream tokens are live and short-lived. If playback dies, resolve again.
+
+### 📺 IPTV playlist
+
+The top bar has **Download M3U8 Playlist** and **Copy M3U8 URL**. Both follow the selected sport tab and produce a standard `#EXTM3U` playlist of every live match and channel, each entry labeled `Title — Source Stream N (HD/SD)` and grouped by sport. Paste the copied URL straight into an IPTV player:
+
+```bash
+vlc http://localhost:3000/api/playlist
+mpv --playlist=http://localhost:3000/api/playlist
+```
+
+Entries are slot-based (`/api/hls?source=…&id=…&stream=…`): the GOAT unlock runs at tune-in time, so tokens are always fresh, and re-tuning a channel heals an expired stream automatically. `?sport=football` scopes the list; the download variant adds an attachment header so the file saves as `streamed-pk-<sport>.m3u`.
 
 ## 🧠 How It Works
 
@@ -177,6 +192,11 @@ sequenceDiagram
   UI->>API: GET /api/hls (playlist + segments)
   API->>CDN: Impit with Referer / Origin
   API-->>UI: rewritten m3u8 / unwrapped TS
+
+  UI->>API: GET /api/playlist (Download / Copy M3U8 buttons)
+  API->>SPK: live catalog + per-source stream rows
+  API-->>UI: #EXTM3U with slot-based /api/hls entries
+  Note over API,CDN: Tune-in: /api/hls?source=&id=&stream= unlocks fresh, then proxies like above
 ```
 
 > Golf servers take a different embed hop (third-party iframe → ingest slot) before the same GOAT unlock. Everything else shares the HLS proxy path.
@@ -201,6 +221,8 @@ Steps after input validation (`src/handlers/resolve.ts`):
 4. Pull the unlocked playlist with Impit Chrome TLS; if it is a master, **select the highest `BANDWIDTH` media URI** (official JW player starts on `high/mono.m3u8`).
 5. Return `m3u8`, `referer` (`https://embed.st/`), and `relay` (`/api/hls?url=&referer=`).
 
+The slot → m3u8 core lives in `src/goat/unlock.ts` and backs both entry points: `POST /api/resolve` and slot-mode `GET /api/hls` (how IPTV playlist entries tune in). Playlist entries deliberately store no m3u8 URL — the unlock runs at tune-in time, so entries never go stale, and re-tuning a channel heals an expired stream automatically.
+
 Tokens are live and short-lived. Nothing is cached on disk.
 
 </details>
@@ -211,6 +233,7 @@ Tokens are live and short-lived. Nothing is cached on disk.
 `GET /api/hls` (`src/proxy/hls.ts`) is the referer-aware **HLS proxy**:
 
 - Upstream pulls go through **Impit** (`src/proxy/pull.ts`) with the `chrome151` TLS fingerprint plus `Referer` and `Origin`.
+- **Slot mode**: without `url`, `source`+`id`+`stream` runs a fresh GOAT unlock first, then proxies the resolved media playlist. The response rewrites every URI to `url` mode, so only the first (tune-in) request pays the unlock — playlist refreshes stay cheap.
 - Playlists (`*.m3u8`) are rewritten so every media URI and `URI="…"` attribute loops back through `/api/hls`.
 - Every other URI is a WEBP segment: parse the RIFF header, emit EXIF MPEG-TS as soon as length is known, and abort the Impit request when the TS body is complete (`pullGoatSegmentStream`).
 
@@ -268,10 +291,20 @@ Failures return `{ "ok": false, "stage": "input"|"resolve", "error": "…" }`.
 
 | Query | Required | Role |
 | --- | --- | --- |
-| `url` | yes | Upstream playlist or segment URL |
-| `referer` | yes | Usually `https://embed.st/` |
+| `url` | one of | Upstream playlist or segment URL (from a prior resolve) |
+| `referer` | with `url` | Usually `https://embed.st/` |
+| `source` + `id` + `stream` | one of | Slot mode — unlock fresh at request time, then proxy (used by playlist entries) |
 
 Returns rewritten `application/vnd.apple.mpegurl` or `video/mp2t`.
+
+### `GET /api/playlist`
+
+| Query | Required | Role |
+| --- | --- | --- |
+| `sport` | no | Filter like the UI tabs (`all`, `football`, …); default `all` |
+| `download` | no | `1` → `Content-Disposition: attachment` so it saves as `streamed-pk-<sport>.m3u` |
+
+Returns `application/x-mpegurl` — a dynamic IPTV playlist of every live match and channel (plus per-source stream variants), each entry labeled `Title — Source Stream N (HD/SD)`, grouped by sport, and pointing at a slot-based `/api/hls` URL. The unlock runs when a player opens the channel, not when the playlist is generated, so entries never carry stale tokens. A 15-second server-side cache limits upstream bursts.
 
 <details>
 <summary><b>Catalog endpoints — <code>/api/sports</code>, <code>/api/matches</code>, <code>/api/streams</code></b></summary>
@@ -317,8 +350,8 @@ src/
   api/           streamed.pk HTTP client (sports, live, streams, match lookup)
   client/        Poppins UI (HTML/CSS) + TypeScript app (hls.js player)
   config/        site origins and source catalog
-  goat/          protobuf fetch, lock.wasm worker, golf → ingest, vendor WASM
-  handlers/      catalog + resolve HTTP handlers
+  goat/          protobuf fetch, shared slot unlock, lock.wasm worker, golf → ingest, vendor WASM
+  handlers/      catalog, resolve, and playlist HTTP handlers
   proxy/         Impit CDN pull, media playlist select, HLS rewrite, WEBP stream unwrap
   server/        Node HTTP entry, router, static client files
   types/         shared models (Match, StreamLink, ResolveResult, Slot)
@@ -343,6 +376,7 @@ Build output lands in `dist/` (gitignored). Scratch RE artifacts stay in local `
 - Live stream tokens expire; resolve again when playback dies.
 - Matches must still exist on streamed.pk live/all endpoints for `matchId` resolve.
 - CDN and playlist pulls use **Impit** `chrome151`.
+- IPTV playlist entries unlock at tune-in: a channel whose upstream is down returns 502 until the upstream recovers — re-tuning retries the unlock.
 - The local relay is for localhost / trusted networks — it does not add auth.
 
 > [!WARNING]
@@ -366,4 +400,3 @@ This project is for research, interoperability, and personal playback against pu
 - [hls.js](https://github.com/video-dev/hls.js) — browser playback
 - [Impit](https://www.npmjs.com/package/impit) — browser-impersonating HTTP client
 - [happy-dom](https://github.com/capricorn86/happy-dom) — in-worker DOM for the unlock chain
-ferent.

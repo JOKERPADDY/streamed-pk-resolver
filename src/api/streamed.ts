@@ -89,11 +89,15 @@ function mergeLiveAndChannels(live: Match[], all: Match[], sport?: string | null
 }
 
 async function listLive(sport?: string | null): Promise<Match[]> {
+  return withActiveStreams(await listLiveCatalog(sport));
+}
+
+export async function listLiveCatalog(sport?: string | null): Promise<Match[]> {
   const [live, all] = await Promise.all([
     getCatalogJson<Match[]>("/api/matches/live"),
     getCatalogJson<Match[]>("/api/matches/all"),
   ]);
-  return withActiveStreams(mergeLiveAndChannels(live, all, sport));
+  return mergeLiveAndChannels(live, all, sport);
 }
 
 export async function listMatches(sport: string, scope: "live" | "popular" | "all" = "live"): Promise<Match[]> {

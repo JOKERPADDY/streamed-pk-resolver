@@ -73,6 +73,8 @@ const ui = {
   mpv: document.getElementById("export-mpv-url") as HTMLInputElement,
   resolveMs: document.getElementById("timing-resolve")!,
   playMs: document.getElementById("timing-play")!,
+  playlistDownload: document.getElementById("playlist-download") as HTMLButtonElement,
+  playlistCopy: document.getElementById("playlist-copy") as HTMLButtonElement,
 };
 
 const state = {
@@ -111,6 +113,54 @@ const showError = (message: string) => {
 const clearError = () => {
   ui.error.hidden = true;
   ui.error.textContent = "";
+};
+
+// Copy that works everywhere: navigator.clipboard only exists in secure
+// contexts (HTTPS or localhost). When the app is opened over plain HTTP on a
+// LAN address — desktop or mobile — that API is undefined and the old code
+// silently threw. Fall back to a hidden textarea + execCommand("copy"),
+// which still works in every browser over HTTP.
+const copyText = async (text: string): Promise<boolean> => {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Permission denied or transient failure — try the legacy path too.
+    }
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.top = "0";
+  area.style.left = "-9999px";
+  area.style.fontSize = "16px";
+  document.body.append(area);
+  const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  area.focus();
+  area.select();
+  area.setSelectionRange(0, text.length);
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  if (previous && previous !== area) previous.focus();
+  area.remove();
+  return copied;
+};
+
+const flashCopy = (button: HTMLButtonElement, copied: boolean) => {
+  const label = button.textContent;
+  button.textContent = copied ? "Copied" : "Copy failed";
+  button.classList.toggle("ok", copied);
+  button.classList.toggle("err", !copied);
+  setTimeout(() => {
+    button.textContent = label;
+    button.classList.remove("ok", "err");
+  }, 1100);
 };
 
 const setIdle = () => {
@@ -228,11 +278,13 @@ const startPlayback = (url: string, timing: PlaybackTimer) => {
 
 const bindExports = (result: ResolveResult) => {
   const streamUrl = result.m3u8 ?? "";
-  const referer = result.referer ?? "";
+  const relay = result.relay ?? "";
   ui.direct.value = streamUrl;
-  ui.proxied.value = result.relay ?? "";
-  ui.vlc.value = streamUrl && referer ? `vlc --http-referrer ${shellQuote(referer)} ${shellQuote(streamUrl)}` : "";
-  ui.mpv.value = streamUrl && referer ? `mpv --referrer=${shellQuote(referer)} ${shellQuote(streamUrl)}` : "";
+  ui.proxied.value = relay;
+  // VLC/mpv use the relay: the local proxy already injects Referer/Origin,
+  // so no referrer flags are needed and the commands work in any player.
+  ui.vlc.value = relay ? `vlc ${shellQuote(relay)}` : "";
+  ui.mpv.value = relay ? `mpv ${shellQuote(relay)}` : "";
 };
 
 const renderSports = () => {
@@ -507,16 +559,31 @@ document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => 
   button.onclick = async () => {
     const field = document.getElementById(button.dataset.copy ?? "") as HTMLInputElement | null;
     if (!field?.value) return;
-    await navigator.clipboard.writeText(field.value);
-    const label = button.textContent;
-    button.textContent = "Copied";
-    button.classList.add("ok");
-    setTimeout(() => {
-      button.textContent = label;
-      button.classList.remove("ok");
-    }, 1100);
+    flashCopy(button, await copyText(field.value));
   };
 });
+
+const playlistHref = (download: boolean) => {
+  const params = new URLSearchParams();
+  if (state.sportId && state.sportId !== "all") params.set("sport", state.sportId);
+  if (download) params.set("download", "1");
+  const query = params.toString();
+  return `/api/playlist${query ? `?${query}` : ""}`;
+};
+
+ui.playlistDownload.onclick = () => {
+  const link = document.createElement("a");
+  link.href = playlistHref(true);
+  const suffix = state.sportId && state.sportId !== "all" ? `-${state.sportId}` : "";
+  link.download = `streamed-pk${suffix}.m3u`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+};
+
+ui.playlistCopy.onclick = async () => {
+  flashCopy(ui.playlistCopy, await copyText(`${location.origin}${playlistHref(false)}`));
+};
 
 ui.refresh.onclick = () => void loadMatches();
 setIdle();

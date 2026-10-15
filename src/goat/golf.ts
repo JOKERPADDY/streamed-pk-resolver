@@ -10,13 +10,13 @@ function iframeSrc(html: string): string {
 }
 
 function ingestFromRocky(html: string): { id: string; stream: string } {
-  const m = html.match(/data-source="([^"]+)"/);
-  if (!m?.[1]) throw new Error("rockystream data-source missing");
+  const m = html.match(/atob\(["']([^"']+)["']\)/) ?? html.match(/data-source=["']([^"']+)["']/);
+  if (!m?.[1]) throw new Error("rockystream ingest source missing");
   let decoded: string;
   try {
     decoded = Buffer.from(m[1], "base64").toString("utf8");
   } catch {
-    throw new Error("rockystream data-source not base64");
+    throw new Error("rockystream ingest source not base64");
   }
   const path = new URL(decoded).pathname.replace(/^\/+|\/+$/g, "").split("/");
   if (path[0] !== "embed" || path[1] !== "ingest" || !path[2] || !path[3]) {

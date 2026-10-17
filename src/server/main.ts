@@ -14,6 +14,9 @@ async function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
 createServer((incoming, outgoing) => {
   void (async () => {
     const host = incoming.headers.host ?? `localhost:${port}`;
+    const forwardedProto = incoming.headers["x-forwarded-proto"];
+    const forwardedProtoValue = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+    const protocol = forwardedProtoValue?.split(",", 1)[0]?.trim().toLowerCase() === "https" ? "https" : "http";
     const headers = new Headers();
     for (const [key, value] of Object.entries(incoming.headers)) {
       if (typeof value === "string") headers.set(key, value);
@@ -32,7 +35,7 @@ createServer((incoming, outgoing) => {
       signal: abort.signal,
     };
     if (body && body.length) init.body = new Uint8Array(body);
-    const request = new Request(`http://${host}${incoming.url ?? "/"}`, init);
+    const request = new Request(`${protocol}://${host}${incoming.url ?? "/"}`, init);
     const response = await handleRequest(request);
     if (outgoing.writableEnded || abort.signal.aborted) return;
     outgoing.statusCode = response.status;

@@ -108,6 +108,43 @@ To customize configuration options (e.g., custom ports or origins), pass environ
 docker run -d --name streamed-pk-resolver -p 8080:8080 -e PORT=8080 streamed-pk-resolver
 ```
 
+## ☁️ Cloudflare Workers & Containers
+
+This project runs as a Node.js container behind a Cloudflare Worker; it is not a Workers-only or Pages deployment. The included `wrangler.jsonc` binds the Worker to one container instance and the Dockerfile targets `linux/amd64`.
+
+### Prerequisites
+
+- A Cloudflare account on the **Workers Paid** plan
+- Docker Desktop (or another Docker-compatible engine) running locally
+- Node.js 22+
+
+Install dependencies and validate the Worker bundle and Wrangler configuration without building or deploying the container image:
+
+```bash
+npm ci
+npm run cloudflare:check
+```
+
+Run the Worker and container locally:
+
+```bash
+npm run cloudflare:dev
+```
+
+Open **http://localhost:8787** to check that the UI loads. To exercise the server API and its outbound connection to streamed.pk, request **http://localhost:8787/api/sports** and confirm it returns JSON.
+
+Deploy to your Cloudflare account:
+
+```bash
+npx wrangler login
+npm run cloudflare:deploy
+```
+
+Wrangler builds and publishes the container image during deployment. The first deployment can take several minutes to provision; then open the `workers.dev` URL printed by Wrangler and check the UI and `/api/sports` endpoint. `npm run cloudflare:check` validates the Worker/configuration bundle but does not build, deploy, or run the container.
+
+> [!WARNING]
+> The app has no built-in authentication and exposes stream proxy endpoints. Before making the Worker publicly accessible, restrict it with Cloudflare Access or another authentication layer.
+
 ## 🎮 Usage
 
 The home page is a three-column live sports workspace:

@@ -4,7 +4,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && node -e \"const fs=require('fs'); fs.mkdirSync('dist/client', {recursive: true}); fs.copyFileSync('src/client/index.html', 'dist/client/index.html'); fs.copyFileSync('src/client/styles.css', 'dist/client/styles.css'); fs.rmSync('dist/goat/vendor', {recursive: true, force: true}); fs.mkdirSync('dist/goat', {recursive: true}); fs.cpSync('src/goat/vendor', 'dist/goat/vendor', {recursive: true});\"",
     "start": "npm run build && node dist/server/main.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "cloudflare:dev": "wrangler dev",
+    "cloudflare:check": "wrangler deploy --dry-run --containers-rollout=none",
+    "cloudflare:deploy": "wrangler deploy"
   },
   "dependencies": {
     "big-integer": "^1.6.52",
@@ -12,7 +15,9 @@
     "impit": "^0.14.5"
   },
   "devDependencies": {
+    "@cloudflare/containers": "^0.3.7",
     "@types/node": "^26.5.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.151.1"
   }
 }

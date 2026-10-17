@@ -1,5 +1,5 @@
 # Build stage
-FROM node:22-alpine AS builder
+FROM --platform=linux/amd64 node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -15,8 +15,11 @@ COPY src ./src
 # Build production distribution files
 RUN npm run build
 
+# Keep build tools and Wrangler out of the runtime image
+RUN npm prune --omit=dev
+
 # Production stage
-FROM node:22-alpine AS runner
+FROM --platform=linux/amd64 node:22-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production

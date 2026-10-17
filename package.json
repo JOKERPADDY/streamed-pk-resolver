@@ -2,7 +2,7 @@
   "name": "streamed-pk-hls-stream-resolver",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && cp src/client/index.html src/client/styles.css dist/client/ && rm -rf dist/goat/vendor && cp -R src/goat/vendor dist/goat/vendor",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && node -e \"const fs=require('fs'); fs.mkdirSync('dist/client', {recursive: true}); fs.copyFileSync('src/client/index.html', 'dist/client/index.html'); fs.copyFileSync('src/client/styles.css', 'dist/client/styles.css'); fs.rmSync('dist/goat/vendor', {recursive: true, force: true}); fs.mkdirSync('dist/goat', {recursive: true}); fs.cpSync('src/goat/vendor', 'dist/goat/vendor', {recursive: true});\"",
     "start": "npm run build && node dist/server/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit"
   },

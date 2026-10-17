@@ -52,7 +52,13 @@ createServer((incoming, outgoing) => {
   })().catch((error: unknown) => {
     if (outgoing.writableEnded) return;
     outgoing.statusCode = 500;
-    outgoing.end(error instanceof Error ? error.message : "internal error");
+    outgoing.setHeader("Content-Type", "application/json");
+    outgoing.end(
+      JSON.stringify({
+        ok: false,
+        error: error instanceof Error ? error.message : "internal error",
+      }),
+    );
   });
 }).listen(port, () => {
   console.log(`http://localhost:${port}`);

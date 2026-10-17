@@ -446,10 +446,23 @@ const renderServers = () => {
   );
 };
 
+const apiFetch = async <T>(url: string, init?: RequestInit): Promise<T> => {
+  const response = await fetch(url, init);
+  const text = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { error: text || `Request failed (${response.status})` };
+  }
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Request failed (${response.status})`);
+  }
+  return data as T;
+};
+
 const loadSports = async () => {
-  const response = await fetch("/api/sports");
-  const sports = (await response.json()) as Sport[];
-  if (!response.ok) throw new Error("sports failed");
+  const sports = await apiFetch<Sport[]>("/api/sports");
   state.sports = sports;
   if (state.sportId !== "all" && !sports.some((sport) => sport.id === state.sportId) && sports[0]) {
     state.sportId = sports[0].id;
@@ -465,9 +478,7 @@ const loadMatches = async () => {
   clearError();
   renderMatches();
   try {
-    const response = await fetch(`/api/matches?sport=${encodeURIComponent(state.sportId)}&scope=live`);
-    const matches = (await response.json()) as Match[];
-    if (!response.ok) throw new Error("matches failed");
+    const matches = await apiFetch<Match[]>(`/api/matches?sport=${encodeURIComponent(state.sportId)}&scope=live`);
     state.matches = Array.isArray(matches) ? matches : [];
     ui.status.className = "status";
     ui.liveMeta.textContent = feedMeta(state.matches);
@@ -496,9 +507,7 @@ const selectMatch = async (match: Match) => {
   ui.status.className = "status is-loading";
   ui.liveMeta.textContent = "Streams…";
   try {
-    const response = await fetch(`/api/streams?matchId=${encodeURIComponent(match.id)}`);
-    const result = (await response.json()) as { streams?: StreamRow[]; error?: string };
-    if (!response.ok) throw new Error(result.error ?? "streams failed");
+    const result = await apiFetch<{ streams?: StreamRow[]; error?: string }>(`/api/streams?matchId=${encodeURIComponent(match.id)}`);
     state.streams = result.streams ?? [];
     renderServers();
     ui.status.className = "status";
@@ -526,7 +535,7 @@ const playStream = async (stream: StreamRow) => {
   renderServers();
   const timing = startTiming();
   try {
-    const response = await fetch("/api/resolve", {
+    const result = await apiFetch<ResolveResult>("/api/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -535,8 +544,7 @@ const playStream = async (stream: StreamRow) => {
         stream: stream.streamNo,
       }),
     });
-    const result = (await response.json()) as ResolveResult;
-    if (!response.ok || !result.ok) throw new Error(result.error ?? `Request failed (${response.status})`);
+    if (!result.ok) throw new Error(result.error ?? "Resolve failed");
     if (result.title) ui.title.textContent = result.title;
     bindExports(result);
     setPlaying();

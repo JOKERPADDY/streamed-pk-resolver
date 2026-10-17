@@ -64,7 +64,7 @@ Open **http://localhost:3000**. The `start` script builds TypeScript, frees the 
 | `npm run build` | Compile server and client into `dist/` |
 | `npm run typecheck` | Type-check without emitting |
 
-Default listen port is `3000` — override with `PORT`.
+The Node app defaults to port `3000`; the Docker image defaults to `10000` to match Render. Override with `PORT`.
 
 ## 🐳 Docker
 
@@ -98,8 +98,8 @@ Build and run manually:
 # Build image
 docker build -t streamed-pk-resolver .
 
-# Run container (mapped to host port 3004)
-docker run -d --name streamed-pk-resolver -p 3004:3000 --restart unless-stopped streamed-pk-resolver
+# Run container (mapped from host port 3004 to the image's default port 10000)
+docker run -d --name streamed-pk-resolver -p 3004:10000 --restart unless-stopped streamed-pk-resolver
 ```
 
 To customize configuration options (e.g., custom ports or origins), pass environment variables:
@@ -108,42 +108,30 @@ To customize configuration options (e.g., custom ports or origins), pass environ
 docker run -d --name streamed-pk-resolver -p 8080:8080 -e PORT=8080 streamed-pk-resolver
 ```
 
-## ☁️ Cloudflare Workers & Containers
+## ☁️ Render Free
 
-This project runs as a Node.js container behind a Cloudflare Worker; it is not a Workers-only or Pages deployment. The included `wrangler.jsonc` binds the Worker to one container instance and the Dockerfile targets `linux/amd64`.
+The included `render.yaml` deploys this Node.js app as a Docker web service on Render's Free plan. The container listens on Render's default `PORT=10000`.
 
-### Prerequisites
+### Deploy
 
-- A Cloudflare account on the **Workers Paid** plan
-- Docker Desktop (or another Docker-compatible engine) running locally
-- Node.js 22+
+1. Push the repository to GitHub.
+2. In Render, choose **New → Blueprint**, connect the repository, and apply the `render.yaml` blueprint. Alternatively, create a **Web Service**, select **Docker**, and choose the Free plan.
+3. Wait for the first Docker build and deployment to finish, then open the service URL.
 
-Install dependencies and validate the Worker bundle and Wrangler configuration without building or deploying the container image:
+Render Free services sleep after 15 minutes without inbound requests and can take about a minute to wake up. Free instance-hours are shared across the workspace, and outbound bandwidth is limited; check Render's **Dashboard → Billing → Monthly Included Usage** before relying on sustained HLS playback. If the workspace's included bandwidth is exhausted, the service may be suspended. This is suitable for testing and occasional use, not guaranteed always-on streaming.
 
-```bash
-npm ci
-npm run cloudflare:check
-```
+### Smoke test a deployment
 
-Run the Worker and container locally:
+Set `RENDER_URL` to the deployed service URL, then run:
 
 ```bash
-npm run cloudflare:dev
+RENDER_URL=https://your-service.onrender.com npm run render:smoke
 ```
 
-Open **http://localhost:8787** to check that the UI loads. To exercise the server API and its outbound connection to streamed.pk, request **http://localhost:8787/api/sports** and confirm it returns JSON.
-
-Deploy to your Cloudflare account:
-
-```bash
-npx wrangler login
-npm run cloudflare:deploy
-```
-
-Wrangler builds and publishes the container image during deployment. The first deployment can take several minutes to provision; then open the `workers.dev` URL printed by Wrangler and check the UI and `/api/sports` endpoint. `npm run cloudflare:check` validates the Worker/configuration bundle but does not build, deploy, or run the container.
+The smoke test checks that `/` serves the app and `/api/sports` returns a successful JSON array. The first request may take longer while a sleeping free service wakes.
 
 > [!WARNING]
-> The app has no built-in authentication and exposes stream proxy endpoints. Before making the Worker publicly accessible, restrict it with Cloudflare Access or another authentication layer.
+> The app has no built-in authentication and exposes stream proxy endpoints. Do not make it publicly accessible without adding an authentication layer.
 
 ## 🎮 Usage
 

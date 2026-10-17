@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: streamed-pk-resolver
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 10000

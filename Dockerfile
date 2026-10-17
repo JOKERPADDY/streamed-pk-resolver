@@ -1,5 +1,5 @@
 # Build stage
-FROM --platform=linux/amd64 node:22-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -19,18 +19,18 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # Production stage
-FROM --platform=linux/amd64 node:22-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=10000
 
 # Copy node_modules and built dist from builder
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 3000
+EXPOSE 10000
 
 USER node
 

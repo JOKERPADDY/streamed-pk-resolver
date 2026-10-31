@@ -1,0 +1,12 @@
+{
+  "name": "streamed-pk-resolver",
+  "compatibility_date": "2024-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS"
+  },
+  "build": {
+    "command": "npm run build"
+  }
+}

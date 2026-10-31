@@ -18,7 +18,8 @@ async function getCdn(): Promise<ImpitClient | null> {
   if (cdnFailed) return null;
   if (!cdnInstance) {
     try {
-      const impitMod = await import("impit");
+      const pkg = "impit";
+      const impitMod = await import(/* @vite-ignore */ pkg);
       const ImpitClass = impitMod.Impit;
       cdnInstance = new ImpitClass({ browser: "chrome151" }) as unknown as ImpitClient;
     } catch {

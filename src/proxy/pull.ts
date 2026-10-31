@@ -36,6 +36,7 @@ export function pullGoatSegmentStream(
     let pending = Buffer.alloc(0);
     let settled = false;
     let finished = false;
+    let isRaw = false;
     let left = 0;
     let total = 0;
     let out: Readable | null = null;
@@ -62,10 +63,11 @@ export function pullGoatSegmentStream(
         pending = Buffer.concat([pending, raw]);
         const meta = readGoatTsMeta(pending, total);
         if (!meta) {
-          if (pending.length > 16384) fail(new Error("goat segment header not found"));
+          if (pending.length > 16384) fail(new Error("segment header not found"));
           return;
         }
         settled = true;
+        isRaw = !!meta.isRaw;
         out = new Readable({
           read() {},
           destroy(_err, cb) {
@@ -73,6 +75,13 @@ export function pullGoatSegmentStream(
             cb(null);
           },
         });
+
+        if (isRaw) {
+          out.push(pending);
+          resolve({ stream: out, contentLength: total });
+          return;
+        }
+
         const available = pending.subarray(meta.offset);
         const first = available.subarray(0, Math.min(available.length, meta.length));
         left = meta.length - first.length;
@@ -86,6 +95,10 @@ export function pullGoatSegmentStream(
         return;
       }
       if (!out) return;
+      if (isRaw) {
+        out.push(raw);
+        return;
+      }
       const take = raw.subarray(0, left);
       left -= take.length;
       out.push(take);
@@ -107,7 +120,10 @@ export function pullGoatSegmentStream(
         if (!finished) fail(err);
       });
       node.on("end", () => {
-        if (!finished) fail(new Error("cdn stream ended early"));
+        if (!finished) {
+          finished = true;
+          if (settled && out) out.push(null);
+        }
       });
     })().catch((err: unknown) => {
       if (!finished) fail(err instanceof Error ? err : new Error(String(err)));
@@ -115,7 +131,10 @@ export function pullGoatSegmentStream(
   });
 }
 
-function readGoatTsMeta(buf: Buffer, total: number): { offset: number; length: number } | null {
+function readGoatTsMeta(buf: Buffer, total: number): { offset: number; length: number; isRaw?: boolean } | null {
+  if (buf.length >= 1 && (buf[0] === 0x47 || buf.toString("ascii", 0, 4) !== "RIFF")) {
+    return { offset: 0, length: total > 0 ? total : buf.length, isRaw: true };
+  }
   if (buf.length < 20 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WEBP") {
     return null;
   }

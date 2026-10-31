@@ -10,7 +10,7 @@ async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${streamedOrigin}${path}`, {
     headers: httpHeaders(undefined, { Accept: "application/json" }),
   });
-  if (!res.ok) throw new Error(`streamed.pk ${path} ${res.status}`);
+  if (!res.ok) throw new Error(`strmfree.st ${path} ${res.status}`);
   return res.json() as Promise<T>;
 }
 
@@ -22,108 +22,93 @@ async function getCatalogJson<T>(path: string): Promise<T> {
   return value;
 }
 
-function isChannel(match: Match): boolean {
-  return match.date === 0;
+export type V1StreamItem = {
+  id: string;
+  name: string;
+  category: string;
+  league?: string;
+  stream_key: string;
+  match_timestamp: number;
+  viewers?: number;
+  sources?: { quality: string; url: string }[];
+  live_sources?: { quality: string; url: string }[];
+};
+
+export async function listSports(): Promise<Sport[]> {
+  const data = await getCatalogJson<{ categories: string[] }>("/api/v1/categories");
+  return (data.categories || []).map((cat) => ({
+    id: cat,
+    name: cat.charAt(0).toUpperCase() + cat.slice(1),
+  }));
 }
 
-function sportFilter(sport?: string | null): (match: Match) => boolean {
-  if (!sport || sport === "all") return () => true;
-  return (match) => match.category === sport;
-}
+function mapV1StreamToMatch(item: V1StreamItem): Match {
+  const sources = (item.live_sources && item.live_sources.length > 0 ? item.live_sources : item.sources || []).map((s, idx) => ({
+    source: "embed",
+    id: item.stream_key || item.id,
+    streamNo: idx + 1,
+    hd: s.quality === "FHD" || s.quality === "HD",
+    embedUrl: s.url,
+  }));
 
-export function listSports(): Promise<Sport[]> {
-  return getCatalogJson("/api/sports");
-}
-
-export function listStreams(source: string, id: string): Promise<StreamLink[]> {
-  return getJson(`/api/stream/${encodeURIComponent(source)}/${encodeURIComponent(id)}`);
-}
-
-async function matchHasStreams(match: Match): Promise<boolean> {
-  if (!match.sources.length) return false;
-  return new Promise((resolve) => {
-    let left = match.sources.length;
-    let settled = false;
-    for (const src of match.sources) {
-      void listStreams(src.source, src.id)
-        .then((links) => {
-          if (settled) return;
-          if (links.length > 0) {
-            settled = true;
-            resolve(true);
-            return;
-          }
-          left -= 1;
-          if (left === 0) resolve(false);
-        })
-        .catch(() => {
-          if (settled) return;
-          left -= 1;
-          if (left === 0) resolve(false);
-        });
-    }
-  });
-}
-
-async function withActiveStreams(matches: Match[]): Promise<Match[]> {
-  const flags = await Promise.all(matches.map(matchHasStreams));
-  return matches.filter((_, index) => flags[index]);
-}
-
-function mergeLiveAndChannels(live: Match[], all: Match[], sport?: string | null): Match[] {
-  const keep = sportFilter(sport);
-  const scopedLive = live.filter(keep);
-  const channels = all.filter((match) => isChannel(match) && keep(match));
-  const byId = new Map<string, Match>();
-  for (const match of channels) byId.set(match.id, match);
-  for (const match of scopedLive) byId.set(match.id, match);
-
-  const liveOrder = new Map(scopedLive.map((match, index) => [match.id, index]));
-  return [...byId.values()].sort((a, b) => {
-    const ac = isChannel(a) ? 0 : 1;
-    const bc = isChannel(b) ? 0 : 1;
-    if (ac !== bc) return ac - bc;
-    if (ac === 0) return a.title.localeCompare(b.title);
-    return (liveOrder.get(a.id) ?? 0) - (liveOrder.get(b.id) ?? 0);
-  });
-}
-
-async function listLive(sport?: string | null): Promise<Match[]> {
-  return withActiveStreams(await listLiveCatalog(sport));
+  return {
+    id: item.stream_key || item.id,
+    title: item.name,
+    category: item.category || "general",
+    date: item.match_timestamp || 0,
+    sources: sources.map((s) => ({ source: s.source, id: s.id })),
+  };
 }
 
 export async function listLiveCatalog(sport?: string | null): Promise<Match[]> {
-  const [live, all] = await Promise.all([
-    getCatalogJson<Match[]>("/api/matches/live"),
-    getCatalogJson<Match[]>("/api/matches/all"),
-  ]);
-  return mergeLiveAndChannels(live, all, sport);
+  const data = await getCatalogJson<{ count: number; streams: V1StreamItem[] }>("/api/v1/streams");
+  const streams = data.streams || [];
+  const matches = streams.map(mapV1StreamToMatch);
+  if (!sport || sport === "all") return matches;
+  return matches.filter((m) => m.category.toLowerCase() === sport.toLowerCase());
 }
 
 export async function listMatches(sport: string, scope: "live" | "popular" | "all" = "live"): Promise<Match[]> {
-  if (scope === "popular") return getCatalogJson(`/api/matches/${encodeURIComponent(sport)}/popular`);
-  if (scope === "all") return getCatalogJson(`/api/matches/${encodeURIComponent(sport)}`);
-  return listLive(sport);
+  return listLiveCatalog(sport);
 }
 
-export function listLivePopular(): Promise<Match[]> {
-  return getCatalogJson("/api/matches/live/popular");
+export async function listLivePopular(): Promise<Match[]> {
+  return listLiveCatalog();
 }
 
 export async function findMatch(matchId: string): Promise<Match> {
-  const [live, all] = await Promise.all([
-    getCatalogJson<Match[]>("/api/matches/live"),
-    getCatalogJson<Match[]>("/api/matches/all"),
-  ]);
-  const match = live.find((item) => item.id === matchId) ?? all.find((item) => item.id === matchId);
+  try {
+    const data = await getJson<V1StreamItem>(`/api/v1/streams/${encodeURIComponent(matchId)}`);
+    if (data && (data.id || data.stream_key)) {
+      return mapV1StreamToMatch(data);
+    }
+  } catch {}
+  const matches = await listLiveCatalog();
+  const match = matches.find((m) => m.id === matchId || m.id.toLowerCase() === matchId.toLowerCase());
   if (!match) throw new Error(`match not found: ${matchId}`);
   return match;
 }
 
+export async function listStreams(source: string, id: string): Promise<StreamLink[]> {
+  try {
+    const data = await getJson<{ stream_key: string; sources?: { quality: string; url: string }[]; live_sources?: { quality: string; url: string }[] }>(
+      `/api/v1/sources/${encodeURIComponent(id)}`
+    );
+    const list = data.live_sources && data.live_sources.length > 0 ? data.live_sources : data.sources || [];
+    return list.map((s, idx) => ({
+      id: id,
+      streamNo: idx + 1,
+      language: "en",
+      hd: s.quality === "FHD" || s.quality === "HD",
+      embedUrl: s.url,
+      source: "embed",
+      viewers: 50,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function listMatchStreams(match: Match): Promise<StreamLink[]> {
-  const groups = await Promise.all(match.sources.map((src) => listStreams(src.source, src.id)));
-  return groups
-    .flat()
-    .filter((link) => link.source && link.id)
-    .sort((a, b) => sourceRank(a.source) - sourceRank(b.source) || Number(b.hd) - Number(a.hd) || a.streamNo - b.streamNo);
+  return listStreams("embed", match.id);
 }

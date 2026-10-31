@@ -1,9 +1,10 @@
 import { httpHeaders } from "../api/headers.js";
+import { safeFetch } from "../api/upstream.js";
 import type { Slot } from "../types/models.js";
 
 export async function postFetch(slot: Slot, body: Uint8Array): Promise<{ body: Buffer; goat: string }> {
   const referer = `${slot.origin}/embed/${slot.path}`;
-  const res = await fetch(`${slot.origin}/fetch`, {
+  const res = await safeFetch(`${slot.origin}/fetch`, {
     method: "POST",
     headers: httpHeaders(referer, {
       "Content-Type": "application/octet-stream",

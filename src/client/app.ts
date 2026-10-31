@@ -447,8 +447,17 @@ const renderServers = () => {
 };
 
 const apiFetch = async <T>(url: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(url, init);
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      "Accept": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
   const text = await response.text();
+  if (text.trim().toLowerCase().startsWith("<!doctype") || text.trim().toLowerCase().startsWith("<html")) {
+    throw new Error(`Server returned HTML instead of JSON for ${url}. Please check that the server is running on the correct port and the API endpoint exists.`);
+  }
   let data: any;
   try {
     data = JSON.parse(text);

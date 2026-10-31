@@ -1,8 +1,8 @@
 export const port = Number(process.env.PORT ?? "3000");
 
-export const streamedOrigin = process.env.STREAMED_ORIGIN ?? "https://streamed.pk";
+export const streamedOrigin = process.env.STREAMED_ORIGIN ?? "https://strmfree.st";
 
-export const embedOrigin = process.env.EMBED_ORIGIN ?? "https://embed.st";
+export const embedOrigin = process.env.EMBED_ORIGIN ?? process.env.STREAMED_ORIGIN ?? "https://strmfree.st";
 
 export const userAgent =
   process.env.USER_AGENT ??

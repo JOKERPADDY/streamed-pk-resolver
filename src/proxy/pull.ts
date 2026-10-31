@@ -14,9 +14,17 @@ function headers(referer: string): Record<string, string> {
 async function request(url: string, referer: string, signal?: AbortSignal) {
   const init: RequestInit = { headers: headers(referer) };
   if (signal) init.signal = signal;
-  const res = await cdn.fetch(url, init);
-  if (!res.ok) throw new Error(`cdn ${res.status}: ${res.statusText.trim() || "failed"}`);
-  return res;
+  try {
+    const res = await cdn.fetch(url, init);
+    if (!res.ok) throw new Error(`cdn ${res.status}: ${res.statusText.trim() || "failed"}`);
+    return res;
+  } catch (err) {
+    const opts: RequestInit = { headers: headers(referer) };
+    if (signal) opts.signal = signal;
+    const fallbackRes = await fetch(url, opts);
+    if (!fallbackRes.ok) throw err instanceof Error ? err : new Error(String(err));
+    return fallbackRes;
+  }
 }
 
 export async function pull(url: string, referer: string): Promise<Buffer> {

@@ -2,358 +2,233 @@
 
 # 📡 Streamed.pk HLS Stream Resolver
 
-**Self-hosted HLS stream resolver for [streamed.pk](https://streamed.pk) live sports.**
+**Self-hosted HLS stream resolver for [streamed.pk](https://streamed.pk) / [strmfree.st](https://strmfree.st) live sports.**
 
-Turn any match + server selection into a playable `m3u8` — replaying the [embed.st](https://embed.st)
-handshake, decrypting the GOAT `/fetch` response with `lock.wasm`, and serving a local HLS proxy that
-injects the required `Referer` while unwrapping **WEBP** segments into raw **MPEG-TS**.
+Turn any match + server selection into a playable `.m3u8` playlist — extracting tokenized player metadata from `strmfree.st`, decrypting fallback GOAT `/fetch` responses, and serving a local HLS proxy that injects required `Referer`/`Origin` headers while unwrapping **MPEG-TS** video segments.
 
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-ESM-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![hls.js](https://img.shields.io/badge/Player-hls.js-E5387A)](https://github.com/video-dev/hls.js)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](#-contributing)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-[Features](#-features) · [Quick Start](#-quick-start) · [Docker](#-docker) · [Usage](#-usage) · [How It Works](#-how-it-works) · [API](#-http-api) · [Disclaimer](#-disclaimer)
+[Features](#-features) · [Quick Start](#-quick-start) · [Docker](#-docker) · [Cloudflare & Deployment Analysis](#-cloudflare-workers--pages-analysis) · [Usage](#-usage) · [How It Works](#-how-it-works) · [API](#-http-api) · [Disclaimer](#-disclaimer)
 
 <p><img src="docs/screenshot.png" alt="App screenshot" width="800" /></p>
 
 </div>
 
 > [!IMPORTANT]
-> **Based on:** [sharoon7171/streamed-pk-hls-stream-resolver](https://github.com/sharoon7171/streamed-pk-hls-stream-resolver).
+> **Repository:** [JOKERPADDY/streamed-pk-resolver](https://github.com/JOKERPADDY/streamed-pk-resolver).
 > 
 > This project is for research, interoperability, and personal playback only. Respect upstream ToS, copyright, and local law — see the [full disclaimer](#-disclaimer).
 
 ## ✨ Features
 
-- 🔓 **GOAT unlock** — replays the embed.st protobuf `/fetch` handshake and decrypts responses with the vendored `lock.wasm`
-- 🛡️ **Chrome TLS fingerprinting** — Impit `chrome151` transport for CDN pulls that would otherwise 403
-- 🧩 **WEBP → MPEG-TS unwrap** — streams raw TS out of the RIFF/EXIF wrapper without buffering whole segments
-- 🚰 **Referer-aware HLS proxy** — local `/api/hls` endpoint rewrites playlists and injects `Referer`/`Origin` for players that can't set headers
-- 🖥️ **Built-in player** — hls.js with official-embed buffer tuning (`maxBufferSize: 0`, `liveSyncDurationCount: 7`)
-- 📋 **External player exports** — copy-paste VLC and mpv commands that point at the local relay, no referrer flags needed
-- 🏟️ **Live catalog** — browse sports, live matches, and ranked HD/SD servers straight from streamed.pk
-- 📺 **Dynamic IPTV M3U8 playlist** — one-click download or copy a live `.m3u` of every listed match/channel; entries unlock fresh at tune-in time
-- 🔧 **Copy that works everywhere** — clipboard with a `execCommand` fallback, so copy buttons work over plain-HTTP LAN access from desktop or mobile
-- ⚡ **Streaming pipes** — responses are piped, so first-byte latency tracks upstream TTFB
+- 🔓 **strmfree.st & GOAT Resolver** — extracts live playback tokens (`_t`, `_e`, `_n`) and `/get-stream-key/` metadata directly from `strmfree.st`, with automated fallback to the GOAT `/fetch` WASM solver
+- 🛡️ **Chrome TLS Transport** — Impit `chrome151` pooled transport for CDN segment pulls that would otherwise return 403
+- 🧩 **MPEG-TS & WEBP Streaming** — streams raw `.js`/`.ts` MPEG-TS video segments directly, with automatic RIFF/WEBP container unwrapping
+- 🚰 **Referer-aware HLS Proxy** — local `/api/hls` endpoint rewrites playlists and injects required `Referer`/`Origin` headers for players that cannot set custom headers
+- 🖥️ **Built-in Player** — hls.js with official-embed buffer tuning (`maxBufferSize: 0`, `liveSyncDurationCount: 7`)
+- 📋 **External Player Exports** — copy-paste VLC and mpv commands that point at the local relay, no referer flags needed
+- 🏟️ **Live Catalog** — browse live sports matches and ranked server channels straight from `strmfree.st`
+- 📺 **Dynamic IPTV M3U Playlist** — one-click download or copy a live `.m3u` playlist of every listed match/channel; entries unlock fresh at tune-in time
+- ⚡ **Zero-Buffer Streaming Pipes** — responses are piped, keeping first-byte latency tied directly to upstream TTFB
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Node.js 18+** with ESM support (or **Docker**)
-- Network access to `streamed.pk`, `embed.st`, and the upstream CDN
-- The Impit native binary (installed automatically via `npm install` or included in the container)
+- Network access to `strmfree.st` and upstream CDNs (`cdn1.strmfree.st`, `strmd.st`)
 
-### Install & run (Local Node.js)
+### Install & Run (Local Node.js)
 
 ```bash
-git clone https://github.com/Lunatic16/streamed-pk-resolver.git
+git clone https://github.com/JOKERPADDY/streamed-pk-resolver.git
 cd streamed-pk-resolver
 npm install
 npm start
 ```
 
-Open **http://localhost:3000**. The `start` script builds TypeScript, frees the port, and runs `dist/server/main.js`.
+Open **http://localhost:3000**. The `start` script builds TypeScript, frees the port if necessary, and starts the Node listener.
 
 | Command | What it does |
 | --- | --- |
-| `npm start` | Build, restart listener, serve UI + API |
+| `npm start` | Build TypeScript, start listener on `http://localhost:3000` |
 | `npm run build` | Compile server and client into `dist/` |
-| `npm run typecheck` | Type-check without emitting |
+| `npm run typecheck` | Type-check TypeScript code without emitting |
 
-The Node app defaults to port `3000`; the Docker image defaults to `10000` to match Render. Override with `PORT`.
+The local Node app defaults to port `3000`; Docker/Render default to `10000`. Customize with `PORT`.
+
+---
 
 ## 🐳 Docker
 
-You can run the resolver in a container with Docker Compose or the Docker CLI.
+Run the resolver in a container using Docker Compose or Docker CLI.
 
 ### Using Docker Compose (Recommended)
-
-Start the service in detached mode:
 
 ```bash
 docker compose up -d
 ```
 
-The app will be accessible at **http://localhost:3004** (mapped from internal port `3000` via `docker-compose.yml`).
+The app will be accessible at **http://localhost:3004** (mapped from internal port `3000`).
 
-To view container logs or stop the service:
+To inspect logs or stop:
 
 ```bash
-# View logs
 docker compose logs -f
-
-# Stop container
 docker compose down
 ```
 
 ### Using Docker CLI
 
-Build and run manually:
-
 ```bash
 # Build image
 docker build -t streamed-pk-resolver .
 
-# Run container (mapped from host port 3004 to the image's default port 10000)
+# Run container
 docker run -d --name streamed-pk-resolver -p 3004:10000 --restart unless-stopped streamed-pk-resolver
 ```
 
-To customize configuration options (e.g., custom ports or origins), pass environment variables:
+---
 
-```bash
-docker run -d --name streamed-pk-resolver -p 8080:8080 -e PORT=8080 streamed-pk-resolver
-```
+## ☁️ Cloudflare Workers / Pages Analysis
 
-## ☁️ Render Free
+Thinking about deploying to **Cloudflare Workers / Pages (Free tier)** instead of **Render**? Here is a technical breakdown:
 
-The included `render.yaml` deploys this Node.js app as a Docker web service on Render's Free plan. The container listens on Render's default `PORT=10000`.
+### ⚠️ Technical Challenges on Cloudflare Workers / Pages
 
-### Deploy
+1. **Node.js Native Dependencies & `impit`**:
+   - The HLS segment proxy uses `impit` (which relies on native C++/Rust TLS bindings) to impersonate Chrome's TLS fingerprint (`chrome151`).
+   - Cloudflare Workers run on V8 Isolates (not Node.js) and cannot execute native Node C++ addons or `impit` binaries.
+2. **`worker_threads` & DOM Environment**:
+   - The fallback WASM GOAT decryptor uses `worker_threads` and `happy-dom` (`src/goat/lock-worker.ts`), which are unsupported on Cloudflare Workers.
+3. **Cloudflare Egress IP & 403 Blocks**:
+   - Cloudflare Worker outbound `fetch()` requests use Cloudflare IP ranges. Upstream CDNs (`strmfree.st`, `cdn1.strmfree.st`) often block or issue 403/405 challenges to standard Cloudflare Worker egress IPs.
+4. **Cloudflare ToS Section 2.8 (Video Bandwidth)**:
+   - Proxying high-bandwidth live video streams through free Cloudflare Workers violates Cloudflare's Terms of Service (Section 2.8: *Non-HTML Content / Video Proxying* without Cloudflare Stream).
+   - The 50 subrequest limit per Worker invocation and 100,000 free requests/day limit will quickly be exhausted when streaming live segment playlists.
 
-1. Push the repository to GitHub.
-2. In Render, choose **New → Blueprint**, connect the repository, and apply the `render.yaml` blueprint. Alternatively, create a **Web Service**, select **Docker**, and choose the Free plan.
-3. Wait for the first Docker build and deployment to finish, then open the service URL.
+### 💡 Recommended Deployment Platforms
 
-Render Free services sleep after 15 minutes without inbound requests and can take about a minute to wake up. Free instance-hours are shared across the workspace, and outbound bandwidth is limited; check Render's **Dashboard → Billing → Monthly Included Usage** before relying on sustained HLS playback. If the workspace's included bandwidth is exhausted, the service may be suspended. This is suitable for testing and occasional use, not guaranteed always-on streaming.
+| Platform | Free Tier | Docker / Node Runtime | Video Bandwidth | Verdict |
+| --- | --- | --- | --- | --- |
+| **Docker / Self-Hosted VPS** | N/A | Full Support | Unlimited | ⭐ **Best Performance** |
+| **Koyeb Free** | 512MB RAM | Full Docker (Always-on) | Good | ⭐ **Best Free Alternative to Render** |
+| **Render Free** | 512MB RAM | Docker (Sleeps after 15m) | Limited | Good for testing |
+| **Cloudflare Workers** | 100k req/day | ❌ No (V8 Isolate) | ❌ Violates ToS | API catalog only |
 
-### Smoke test a deployment
-
-Set `RENDER_URL` to the deployed service URL, then run:
-
-```bash
-RENDER_URL=https://your-service.onrender.com npm run render:smoke
-```
-
-The smoke test checks that `/` serves the app and `/api/sports` returns a successful JSON array. The first request may take longer while a sleeping free service wakes.
-
-> [!WARNING]
-> The app has no built-in authentication and exposes stream proxy endpoints. Do not make it publicly accessible without adding an authentication layer.
+---
 
 ## 🎮 Usage
 
-The home page is a three-column live sports workspace:
+The web UI provides a clean workspace to select and play live matches:
 
 | Column | What you get |
 | --- | --- |
-| **Matches** | Live events for the selected sport (or All), filtered to feeds that still expose streams |
-| **Player** | Stage title, resolve / first-frame timing, hls.js playback, and copy fields for Direct, Proxied, VLC, and mpv |
-| **Servers** | Sources for the selected match (HD/SD, language, viewers) — click a stream to resolve and play |
+| **Matches** | Filter live events by sport category |
+| **Player** | Playback stage with hls.js player + copyable Direct, Proxied, VLC, and mpv links |
+| **Servers** | Stream servers available for the selected event — click a server to resolve |
 
-Flow is always **match → server → play**. Resolve does not run until a server chip is chosen. After a successful unlock, the proxied URL drives the in-page player; the Direct URL is the CDN media playlist (usually `high/mono.m3u8`) intended for players that can send the embed `Referer`.
+### 📺 External Players (VLC & mpv)
 
-Example external playback (values come from the export panel after resolve):
+Export links directly from the UI:
 
 ```bash
-vlc 'http://localhost:3000/api/hls?url=…&referer=https%3A%2F%2Fembed.st%2F'
-mpv 'http://localhost:3000/api/hls?url=…&referer=https%3A%2F%2Fembed.st%2F'
+# VLC Playback (using local proxied relay)
+vlc "http://localhost:3000/api/hls?url=...&referer=https%3A%2F%2Fstrmfree.st%2F"
+
+# mpv Playback
+mpv "http://localhost:3000/api/hls?url=...&referer=https%3A%2F%2Fstrmfree.st%2F"
 ```
 
-The VLC and mpv exports use the **Proxied** relay URL — the local server injects the embed `Referer`/`Origin` itself, so the commands work in any player without flags. The **Direct** URL stays available for players that can send the embed `Referer` on their own.
+### 📺 IPTV M3U Playlist
 
-> [!TIP]
-> If your player can't set `Referer` headers, use the **Proxied** `/api/hls` link instead — the local server attaches the headers and rewrites nested playlist and segment URLs for you.
-
-> [!NOTE]
-> Stream tokens are live and short-lived. If playback dies, resolve again.
-
-### 📺 IPTV playlist
-
-The top bar has **Download M3U8 Playlist** and **Copy M3U8 URL**. Both follow the selected sport tab and produce a standard `#EXTM3U` playlist of every live match and channel, each entry labeled `Title — Source Stream N (HD/SD)` and grouped by sport. Paste the copied URL straight into an IPTV player:
+Generate a live `.m3u` playlist for IPTV clients (e.g., TiviMate, OTT Navigator, VLC):
 
 ```bash
 vlc http://localhost:3000/api/playlist
 mpv --playlist=http://localhost:3000/api/playlist
 ```
 
-Entries are slot-based (`/api/hls?source=…&id=…&stream=…`): the GOAT unlock runs at tune-in time, so tokens are always fresh, and re-tuning a channel heals an expired stream automatically. `?sport=football` scopes the list; the download variant adds an attachment header so the file saves as `streamed-pk-<sport>.m3u`.
+---
 
 ## 🧠 How It Works
-
-A streamed.pk watch page is not a stream. It lists live sports matches and points each server (Admin, Alpha, Golf, …) at an **embed.st** player. The real **HLS playlist URL never appears in HTML**: the official player posts a protobuf body to embed.st `/fetch`, reads a `goat` header, runs a **WASM** unlock, then requests a tokenized CDN `m3u8` (typically `*.strmd.st`) with `Referer: https://embed.st/`.
-
-Two things break naive scrapers:
-
-1. Bare Node `fetch` against the CDN usually returns **403** (TLS fingerprinting).
-2. Media playlist URIs wrap MPEG-TS inside a **RIFF/WEBP** container (EXIF payload), so forwarding bytes as `video/mp2t` buffers forever or fails to decode.
-
-This resolver copies the official path end to end: **catalog → unlock → highest-bandwidth media playlist → Impit relay with streaming unwrap → browser or VLC/mpv.**
-
-| Layer | Origin | Role |
-| --- | --- | --- |
-| Catalog | streamed.pk | Sports, live matches, per-source stream lists |
-| Unlock | embed.st | Protobuf `/fetch`, `goat` header, `lock.wasm` decrypt |
-| Media | `*.strmd.st` + playlist segment URIs | Master/media m3u8 and WEBP-wrapped MPEG-TS |
 
 ```mermaid
 sequenceDiagram
   participant UI as Client UI
   participant API as Local Server
-  participant SPK as streamed.pk
-  participant EST as embed.st
-  participant CDN as strmd.st / segment CDN
+  participant SPK as strmfree.st API
+  participant EMB as strmfree.st Embed
+  participant CDN as cdn1.strmfree.st / Live CDN
 
-  UI->>API: GET /api/matches?sport=&scope=live
-  API->>SPK: /api/matches/live (+ stream probe)
-  SPK-->>API: live matches
-  API-->>UI: match list
+  UI->>API: GET /api/matches?sport=racing&scope=live
+  API->>SPK: /api/v1/streams
+  SPK-->>API: Live streams catalog
+  API-->>UI: Match list
 
-  UI->>API: GET /api/streams?matchId=
-  API->>SPK: /api/stream/{source}/{id}
-  SPK-->>API: stream rows
-  API-->>UI: servers (HD/SD)
+  UI->>API: POST /api/resolve (matchId: skyf1, stream: 1)
+  API->>SPK: GET /get-stream-key/skyf1
+  API->>EMB: GET /embed/racing/skyf11080p
+  EMB-->>API: HTML (_0x token object)
+  API->>API: Extract tokens (_t, _e, _n) & build m3u8 URL
+  API-->>UI: m3u8 URL, Referer, Relay URL
 
-  UI->>API: POST /api/resolve
-  API->>EST: POST /fetch (protobuf)
-  EST-->>API: goat + ciphertext
-  API->>API: lock.wasm unlock (worker)
-  API->>CDN: Impit Chrome TLS master m3u8 (Referer)
-  API->>API: select highest BANDWIDTH media
-  API-->>UI: m3u8, referer, relay
-
-  UI->>API: GET /api/hls (playlist + segments)
-  API->>CDN: Impit with Referer / Origin
-  API-->>UI: rewritten m3u8 / unwrapped TS
-
-  UI->>API: GET /api/playlist (Download / Copy M3U8 buttons)
-  API->>SPK: live catalog + per-source stream rows
-  API-->>UI: #EXTM3U with slot-based /api/hls entries
-  Note over API,CDN: Tune-in: /api/hls?source=&id=&stream= unlocks fresh, then proxies like above
+  UI->>API: GET /api/hls (Relay m3u8 & segments)
+  API->>CDN: Impit request with Referer: https://strmfree.st/
+  CDN-->>API: m3u8 / MPEG-TS segments (0x47)
+  API-->>UI: Rewritten m3u8 / Video stream
 ```
 
-> Golf servers take a different embed hop (third-party iframe → ingest slot) before the same GOAT unlock. Everything else shares the HLS proxy path.
-
-## 🔬 Under the Hood
-
-<details>
-<summary><b>Resolve pipeline — <code>POST /api/resolve</code></b></summary>
-
-Accepts either a match-bound selection or a direct source slot:
-
-| Body | Meaning |
-| --- | --- |
-| `matchId` + `source` + `stream` | Look up the match, pick that source's `streamNo` |
-| `source` + `id` + `stream` | Resolve without browsing the live list |
-
-Steps after input validation (`src/handlers/resolve.ts`):
-
-1. Build an embed **slot** (`source` / `id` / `stream` → `embed.st/embed/...`).
-2. **Golf** → `unlockGolf` maps to an ingest slot; other sources → `resolveGoat`.
-3. GOAT path encodes a protobuf body (`src/goat/proto.ts`), `POST`s embed.st `/fetch` (`src/goat/fetch.ts`), and decrypts in a worker thread with happy-dom + vendored `lock.wasm` (`src/goat/lock.ts`, `src/goat/lock-worker.ts`).
-4. Pull the unlocked playlist with Impit Chrome TLS; if it is a master, **select the highest `BANDWIDTH` media URI** (official JW player starts on `high/mono.m3u8`).
-5. Return `m3u8`, `referer` (`https://embed.st/`), and `relay` (`/api/hls?url=&referer=`).
-
-The slot → m3u8 core lives in `src/goat/unlock.ts` and backs both entry points: `POST /api/resolve` and slot-mode `GET /api/hls` (how IPTV playlist entries tune in). Playlist entries deliberately store no m3u8 URL — the unlock runs at tune-in time, so entries never go stale, and re-tuning a channel heals an expired stream automatically.
-
-Tokens are live and short-lived. Nothing is cached on disk.
-
-</details>
-
-<details>
-<summary><b>HLS proxy & playback internals</b></summary>
-
-`GET /api/hls` (`src/proxy/hls.ts`) is the referer-aware **HLS proxy**:
-
-- Upstream pulls go through **Impit** (`src/proxy/pull.ts`) with the `chrome151` TLS fingerprint plus `Referer` and `Origin`.
-- **Slot mode**: without `url`, `source`+`id`+`stream` runs a fresh GOAT unlock first, then proxies the resolved media playlist. The response rewrites every URI to `url` mode, so only the first (tune-in) request pays the unlock — playlist refreshes stay cheap.
-- Playlists (`*.m3u8`) are rewritten so every media URI and `URI="…"` attribute loops back through `/api/hls`.
-- Every other URI is a WEBP segment: parse the RIFF header, emit EXIF MPEG-TS as soon as length is known, and abort the Impit request when the TS body is complete (`pullGoatSegmentStream`).
-
-The HTTP server pipes response bodies (`src/server/main.ts`) instead of buffering `arrayBuffer()`, so first-byte latency tracks upstream TTFB rather than full segment download time.
-
-The client HLS config mirrors the official embed numbers: `maxBufferSize: 0`, `maxBufferLength: 10`, `liveSyncDurationCount: 7`.
-
-</details>
+---
 
 ## 🌐 HTTP API
 
-All JSON and HLS routes share the same process as the static UI.
-
 ### `POST /api/resolve`
 
-Request body (JSON):
-
+**Request Body (JSON):**
 ```json
 {
-  "matchId": "leeds-united-vs-newcastle-united-2494036",
-  "source": "admin",
+  "matchId": "skyf1",
+  "source": "embed",
   "stream": 1
 }
 ```
 
-or:
-
-```json
-{
-  "source": "admin",
-  "id": "ppv-leeds-united-vs-newcastle-united",
-  "stream": 1
-}
-```
-
-Success shape:
-
+**Response (JSON):**
 ```json
 {
   "ok": true,
-  "matchId": "…",
-  "title": "…",
-  "source": "admin",
+  "matchId": "skyf1",
+  "title": "Sky Sports F1",
+  "source": "embed",
   "stream": "1",
-  "embedUrl": "https://embed.st/embed/…",
-  "m3u8": "https://lb….strmd.st/…/high/mono.m3u8",
-  "referer": "https://embed.st/",
-  "relay": "http://localhost:3000/api/hls?url=…&referer=…"
+  "embedUrl": "https://strmfree.st/embed/racing/skyf11080p",
+  "m3u8": "https://strmfree.st/live-cdn/skyf11080p/index.m3u8?_t=...&_e=...&_n=...",
+  "referer": "https://strmfree.st/",
+  "relay": "http://localhost:3000/api/hls?url=...&referer=..."
 }
 ```
 
-Failures return `{ "ok": false, "stage": "input"|"resolve", "error": "…" }`.
-
 ### `GET /api/hls`
 
-| Query | Required | Role |
-| --- | --- | --- |
-| `url` | one of | Upstream playlist or segment URL (from a prior resolve) |
-| `referer` | with `url` | Usually `https://embed.st/` |
-| `source` + `id` + `stream` | one of | Slot mode — unlock fresh at request time, then proxy (used by playlist entries) |
-
-Returns rewritten `application/vnd.apple.mpegurl` or `video/mp2t`.
+Parameters:
+- `url`: Upstream `.m3u8` or segment URL.
+- `referer`: Required referer (`https://strmfree.st/`).
 
 ### `GET /api/playlist`
 
-| Query | Required | Role |
-| --- | --- | --- |
-| `sport` | no | Filter like the UI tabs (`all`, `football`, …); default `all` |
-| `download` | no | `1` → `Content-Disposition: attachment` so it saves as `streamed-pk-<sport>.m3u` |
+Returns a dynamic `#EXTM3U` playlist of all currently live streams.
+Query parameters:
+- `sport`: Filter by category (e.g., `football`, `racing`, `tennis`, `all`).
+- `download=1`: Triggers browser file download (`streamed-pk-<sport>.m3u`).
 
-Returns `application/x-mpegurl` — a dynamic IPTV playlist of every live match and channel (plus per-source stream variants), each entry labeled `Title — Source Stream N (HD/SD)`, grouped by sport, and pointing at a slot-based `/api/hls` URL. The unlock runs when a player opens the channel, not when the playlist is generated, so entries never carry stale tokens. A 15-second server-side cache limits upstream bursts.
-
-<details>
-<summary><b>Catalog endpoints — <code>/api/sports</code>, <code>/api/matches</code>, <code>/api/streams</code></b></summary>
-
-#### `GET /api/sports`
-
-Proxies streamed.pk `/api/sports`. Returns `[{ id, name }, …]`.
-
-#### `GET /api/matches`
-
-| Query | Behavior |
-| --- | --- |
-| `sport=all` (or a category) + `scope=live` | Live list from `/api/matches/live`, optionally filtered by category, dropping matches with empty stream probes |
-| `scope=popular` / `scope=all` | streamed.pk popular or full sport lists |
-| missing `sport` or `sport=live-popular` | `/api/matches/live/popular` |
-
-#### `GET /api/streams`
-
-| Query | Behavior |
-| --- | --- |
-| `matchId=` | All sources for that match, ranked, with `sourceName` / `sourceDescription` |
-| `source=` + `id=` | Single-source stream list |
-
-</details>
+---
 
 ## ⚙️ Configuration
 
@@ -361,55 +236,12 @@ Environment variables (`src/config/site.ts`):
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `3000` | HTTP listen port |
-| `STREAMED_ORIGIN` | `https://streamed.pk` | Catalog API origin |
-| `EMBED_ORIGIN` | `https://embed.st` | Unlock / Referer origin |
-| `USER_AGENT` | Chrome-like desktop UA | streamed.pk and embed.st Node `fetch` (CDN pulls use Impit's Chrome 151 UA) |
+| `PORT` | `3000` | HTTP listening port |
+| `STREAMED_ORIGIN` | `https://strmfree.st` | Upstream catalog & API origin |
+| `EMBED_ORIGIN` | `https://strmfree.st` | Upstream embed & referrer origin |
+| `USER_AGENT` | Desktop Chrome UA | Outbound HTTP headers |
 
-Source display names, descriptions, and sort tiers live in `src/config/sources.ts` (Admin through Intel).
-
-## 📁 Project Structure
-
-```
-src/
-  api/           streamed.pk HTTP client (sports, live, streams, match lookup)
-  client/        Poppins UI (HTML/CSS) + TypeScript app (hls.js player)
-  config/        site origins and source catalog
-  goat/          protobuf fetch, shared slot unlock, lock.wasm worker, golf → ingest, vendor WASM
-  handlers/      catalog, resolve, and playlist HTTP handlers
-  proxy/         Impit CDN pull, media playlist select, HLS rewrite, WEBP stream unwrap
-  server/        Node HTTP entry, router, static client files
-  types/         shared models (Match, StreamLink, ResolveResult, Slot)
-```
-
-Build output lands in `dist/` (gitignored). Scratch RE artifacts stay in local `tmp/` (excluded via `.git/info/exclude`, not committed).
-
-## 🧰 Tech Stack
-
-| Piece | Choice |
-| --- | --- |
-| Language | TypeScript (ESM, NodeNext server + bundler client) |
-| Runtime | Node.js `http` + Web `Request`/`Response` |
-| Unlock | happy-dom + worker_threads + vendored `lock.wasm` / `lock-esm.mjs` |
-| Math helper | `big-integer` (WASM glue) |
-| CDN transport | Impit `chrome151` (pooled TLS, streaming segments) |
-| Player | hls.js from jsDelivr |
-
-## ⚠️ Limitations
-
-- Scope is **streamed.pk / embed.st** (including Golf's third-party hop). Other aggregators use different unlock chains.
-- Live stream tokens expire; resolve again when playback dies.
-- Matches must still exist on streamed.pk live/all endpoints for `matchId` resolve.
-- CDN and playlist pulls use **Impit** `chrome151`.
-- IPTV playlist entries unlock at tune-in: a channel whose upstream is down returns 502 until the upstream recovers — re-tuning retries the unlock.
-- The local relay is for localhost / trusted networks — it does not add auth.
-
-> [!WARNING]
-> Do not expose this server to the public internet without putting your own auth in front of it.
-
-## 🤝 Contributing
-
-PRs are welcome! For anything non-trivial, please open an issue first to discuss the approach. Run `npm run typecheck` before submitting.
+---
 
 ## 📄 License
 
@@ -417,11 +249,4 @@ Released under the [MIT License](LICENSE).
 
 ## ⚖️ Disclaimer
 
-This project is for research, interoperability, and personal playback against publicly reachable streamed.pk / embed.st endpoints. Respect upstream terms of service, copyright, and local law. Do not use it to redistribute or monetize streams you are not authorized to carry.
-
-## 🙏 Acknowledgements
-
-- [streamed.pk](https://streamed.pk) / [embed.st](https://embed.st) — upstream catalog and player
-- [hls.js](https://github.com/video-dev/hls.js) — browser playback
-- [Impit](https://www.npmjs.com/package/impit) — browser-impersonating HTTP client
-- [happy-dom](https://github.com/capricorn86/happy-dom) — in-worker DOM for the unlock chain
+This project is for research, interoperability, and personal playback against publicly accessible endpoints. Respect upstream terms of service, copyright, and local law. Do not use it to redistribute or monetize streams.

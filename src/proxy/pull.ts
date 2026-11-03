@@ -1,5 +1,9 @@
 import { Readable } from "node:stream";
 
+import { Impit, type RequestInit } from "impit";
+
+const cdn = new Impit({ browser: "chrome151" });
+
 function headers(referer: string): Record<string, string> {
   return {
     Origin: new URL(referer).origin,
@@ -7,44 +11,12 @@ function headers(referer: string): Record<string, string> {
   };
 }
 
-type ImpitClient = {
-  fetch: (url: string, init?: unknown) => Promise<Response>;
-};
-
-let cdnInstance: ImpitClient | null = null;
-let cdnFailed = false;
-
-async function getCdn(): Promise<ImpitClient | null> {
-  if (cdnFailed) return null;
-  if (!cdnInstance) {
-    try {
-      const pkg = "impit";
-      const impitMod = await import(/* @vite-ignore */ pkg);
-      const ImpitClass = impitMod.Impit;
-      cdnInstance = new ImpitClass({ browser: "chrome151" }) as unknown as ImpitClient;
-    } catch {
-      cdnFailed = true;
-      return null;
-    }
-  }
-  return cdnInstance;
-}
-
 async function request(url: string, referer: string, signal?: AbortSignal) {
-  const reqHeaders = headers(referer);
-  const cdn = await getCdn();
-  if (cdn) {
-    try {
-      const res = await cdn.fetch(url, { headers: reqHeaders, signal });
-      if (res.ok) return res;
-    } catch {}
-  }
-
-  const opts: RequestInit = { headers: reqHeaders };
-  if (signal) opts.signal = signal;
-  const fallbackRes = await fetch(url, opts);
-  if (!fallbackRes.ok) throw new Error(`cdn ${fallbackRes.status}: ${fallbackRes.statusText.trim() || "failed"}`);
-  return fallbackRes;
+  const init: RequestInit = { headers: headers(referer) };
+  if (signal) init.signal = signal;
+  const res = await cdn.fetch(url, init);
+  if (!res.ok) throw new Error(`cdn ${res.status}: ${res.statusText.trim() || "failed"}`);
+  return res;
 }
 
 export async function pull(url: string, referer: string): Promise<Buffer> {

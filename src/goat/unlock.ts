@@ -20,13 +20,7 @@ export async function resolveStrmfreeSlot(slot: Slot): Promise<{ m3u8: string; r
     }
   } catch {}
 
-  let targetEmbedUrl = embedUrl || `${origin}/embed/general/${streamKey}`;
-  try {
-    const u = new URL(targetEmbedUrl);
-    u.protocol = new URL(origin).protocol;
-    u.host = new URL(origin).host;
-    targetEmbedUrl = u.toString();
-  } catch {}
+  const targetEmbedUrl = embedUrl || `${origin}/embed/general/${streamKey}`;
 
   const htmlRes = await fetch(targetEmbedUrl);
   if (!htmlRes.ok) throw new Error(`embed page fetch failed (${htmlRes.status})`);
@@ -95,7 +89,6 @@ export async function resolveStrmfreeSlot(slot: Slot): Promise<{ m3u8: string; r
   }
 
   const m3u8 = `${origin}${path}`;
-  console.log("RESOLVED M3U8:", m3u8);
   const referer = targetEmbedUrl;
   await selectMediaPlaylist(m3u8, referer);
   return { m3u8, referer };

@@ -9,7 +9,7 @@ export async function resolveStrmfreeSlot(slot: Slot): Promise<{ m3u8: string; r
 
   let embedUrl = "";
   try {
-    const srcRes = await fetch(`${origin}/api/v1/streams/${encodeURIComponent(streamKey)}`);
+    const srcRes = await fetch(`${origin}/api/v1/sources/${encodeURIComponent(streamKey)}`);
     if (srcRes.ok) {
       const srcData = (await srcRes.json()) as { sources?: { quality: string; url: string; live?: boolean }[] };
       const list = srcData.sources || [];

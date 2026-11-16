@@ -1,20 +1,12 @@
 import { Readable } from "node:stream";
 
-import { Impit, type RequestInit } from "impit";
-
-const cdn = new Impit({ browser: "chrome151" });
-
-function headers(referer: string): Record<string, string> {
-  return {
-    Origin: new URL(referer).origin,
-    Referer: referer,
-  };
-}
-
 async function request(url: string, referer: string, signal?: AbortSignal) {
-  const init: RequestInit = { headers: headers(referer) };
-  if (signal) init.signal = signal;
-  const res = await cdn.fetch(url, init);
+  const res = await fetch(url, {
+    headers: {
+      Referer: referer,
+    },
+    ...(signal ? { signal } : {}),
+  });
   if (!res.ok) throw new Error(`cdn ${res.status}: ${res.statusText.trim() || "failed"}`);
   return res;
 }

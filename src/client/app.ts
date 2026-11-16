@@ -592,7 +592,7 @@ ui.playlistDownload.onclick = () => {
   const link = document.createElement("a");
   link.href = playlistHref(true);
   const suffix = state.sportId && state.sportId !== "all" ? `-${state.sportId}` : "";
-  link.download = `streamed-pk${suffix}.m3u`;
+  link.download = `streamfree${suffix}.m3u`;
   document.body.append(link);
   link.click();
   link.remove();

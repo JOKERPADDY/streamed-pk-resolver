@@ -43,7 +43,7 @@ async function buildPlaylist(origin: string, sport: string): Promise<{ body: str
   );
   const lines = blocks.flat();
   const stamp = new Date().toISOString().replace("T", " ").slice(0, 19);
-  const header = `#EXTM3U\n# Streamed.pk dynamic playlist — generated ${stamp} UTC — ${lines.length} entries`;
+  const header = `#EXTM3U\n# StreamFree dynamic playlist — generated ${stamp} UTC — ${lines.length} entries`;
   return { body: lines.length ? `${header}\n${lines.join("\n")}\n` : `${header}\n`, count: lines.length };
 }
 
@@ -73,7 +73,7 @@ export async function handlePlaylist(request: Request): Promise<Response> {
       const safe = sport.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
       headers.set(
         "Content-Disposition",
-        `attachment; filename="streamed-pk${safe && safe !== "all" ? `-${safe}` : ""}.m3u"`,
+        `attachment; filename="streamfree${safe && safe !== "all" ? `-${safe}` : ""}.m3u"`,
       );
     }
     return new Response(body, { status: 200, headers });

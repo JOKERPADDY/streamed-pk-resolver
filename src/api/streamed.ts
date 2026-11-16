@@ -10,7 +10,7 @@ async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${streamedOrigin}${path}`, {
     headers: httpHeaders(undefined, { Accept: "application/json" }),
   });
-  if (!res.ok) throw new Error(`strmfree.st ${path} ${res.status}`);
+  if (!res.ok) throw new Error(`streamfree.top ${path} ${res.status}`);
   return res.json() as Promise<T>;
 }
 
@@ -23,15 +23,15 @@ async function getCatalogJson<T>(path: string): Promise<T> {
 }
 
 export type V1StreamItem = {
-  id: string;
+  id?: string;
   name: string;
   category: string;
   league?: string;
   stream_key: string;
   match_timestamp: number;
   viewers?: number;
-  sources?: { quality: string; url: string }[];
-  live_sources?: { quality: string; url: string }[];
+  sources?: { quality: string; url: string; live?: boolean }[];
+  thumbnail_url?: string;
 };
 
 export async function listSports(): Promise<Sport[]> {
@@ -43,16 +43,16 @@ export async function listSports(): Promise<Sport[]> {
 }
 
 function mapV1StreamToMatch(item: V1StreamItem): Match {
-  const sources = (item.live_sources && item.live_sources.length > 0 ? item.live_sources : item.sources || []).map((s, idx) => ({
+  const sources = (item.sources || []).map((s, idx) => ({
     source: "embed",
-    id: item.stream_key || item.id,
+    id: item.stream_key || item.id || "",
     streamNo: idx + 1,
-    hd: s.quality === "FHD" || s.quality === "HD",
+    hd: s.quality === "FHD" || s.quality === "HD" || s.quality === "4K",
     embedUrl: s.url,
   }));
 
   return {
-    id: item.stream_key || item.id,
+    id: item.stream_key || item.id || "",
     title: item.name,
     category: item.category || "general",
     date: item.match_timestamp || 0,
@@ -61,11 +61,10 @@ function mapV1StreamToMatch(item: V1StreamItem): Match {
 }
 
 export async function listLiveCatalog(sport?: string | null): Promise<Match[]> {
-  const data = await getCatalogJson<{ count: number; streams: V1StreamItem[] }>("/api/v1/streams");
+  const path = sport && sport !== "all" ? `/api/v1/streams?category=${encodeURIComponent(sport)}` : "/api/v1/streams";
+  const data = await getCatalogJson<{ count: number; streams: V1StreamItem[] }>(path);
   const streams = data.streams || [];
-  const matches = streams.map(mapV1StreamToMatch);
-  if (!sport || sport === "all") return matches;
-  return matches.filter((m) => m.category.toLowerCase() === sport.toLowerCase());
+  return streams.map(mapV1StreamToMatch);
 }
 
 export async function listMatches(sport: string, scope: "live" | "popular" | "all" = "live"): Promise<Match[]> {
@@ -79,7 +78,7 @@ export async function listLivePopular(): Promise<Match[]> {
 export async function findMatch(matchId: string): Promise<Match> {
   try {
     const data = await getJson<V1StreamItem>(`/api/v1/streams/${encodeURIComponent(matchId)}`);
-    if (data && (data.id || data.stream_key)) {
+    if (data && (data.stream_key || data.name)) {
       return mapV1StreamToMatch(data);
     }
   } catch {}
@@ -91,18 +90,18 @@ export async function findMatch(matchId: string): Promise<Match> {
 
 export async function listStreams(source: string, id: string): Promise<StreamLink[]> {
   try {
-    const data = await getJson<{ stream_key: string; sources?: { quality: string; url: string }[]; live_sources?: { quality: string; url: string }[] }>(
+    const data = await getJson<{ stream_key: string; sources?: { quality: string; url: string; live?: boolean }[] }>(
       `/api/v1/sources/${encodeURIComponent(id)}`
     );
-    const list = data.live_sources && data.live_sources.length > 0 ? data.live_sources : data.sources || [];
+    const list = data.sources || [];
     return list.map((s, idx) => ({
       id: id,
       streamNo: idx + 1,
       language: "en",
-      hd: s.quality === "FHD" || s.quality === "HD",
+      hd: s.quality === "FHD" || s.quality === "HD" || s.quality === "4K",
       embedUrl: s.url,
       source: "embed",
-      viewers: 50,
+      viewers: s.live ? 50 : 0,
     }));
   } catch {
     return [];

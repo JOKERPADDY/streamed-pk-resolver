@@ -28,8 +28,12 @@ async function slotFromInput(input: ResolveInput): Promise<{
     if (!input.source || input.stream == null) throw new Error("matchId requires source and stream");
     const match = await findMatch(input.matchId);
     const src = match.sources.find((entry) => entry.source === input.source);
-    if (!src) throw new Error(`source ${input.source} not on match`);
-    const link = pickStream(await listStreams(src.source, src.id), input.stream);
+    const targetId = src ? src.id : match.id;
+    const availableStreams = await listStreams(input.source, targetId);
+    if (!availableStreams.length) {
+      throw new Error("No active stream sources for this match right now.");
+    }
+    const link = pickStream(availableStreams, input.stream);
     return {
       matchId: match.id,
       title: match.title,
@@ -41,7 +45,11 @@ async function slotFromInput(input: ResolveInput): Promise<{
   if (!input.source || !input.id || input.stream == null) {
     throw new Error("source, id, and stream required");
   }
-  const link = pickStream(await listStreams(input.source, input.id), input.stream);
+  const availableStreams = await listStreams(input.source, input.id);
+  if (!availableStreams.length) {
+    throw new Error("No active stream sources for this match right now.");
+  }
+  const link = pickStream(availableStreams, input.stream);
   return {
     embedUrl: link.embedUrl,
     slot: makeSlot(link.source, link.id, link.streamNo),

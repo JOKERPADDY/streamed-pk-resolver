@@ -507,12 +507,14 @@ const selectMatch = async (match: Match) => {
   if (state.resolving) return;
   state.activeMatchId = match.id;
   state.activeStreamKey = null;
+  state.streams = [];
   clearError();
   stopPlayback();
   setIdle();
   ui.kicker.textContent = "Pick a server";
   ui.title.textContent = match.title;
   renderMatches();
+  renderServers();
   ui.status.className = "status is-loading";
   ui.liveMeta.textContent = "Streams…";
   try {

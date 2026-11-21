@@ -75,7 +75,9 @@ export async function resolveStrmfreeSlot(slot: Slot): Promise<{ m3u8: string; r
         ? `/live-cdn/${variant}/index.m3u8`
         : `/live/${variant}/index.m3u8`;
 
-  const params = ox ? ox[quality] : null;
+  const params = ox
+    ? ox[variant] || ox[quality] || Object.values(ox).find((p) => p && p._t) || Object.values(ox)[0]
+    : null;
   if (params) {
     const searchParams = new URLSearchParams();
     if (params._t) searchParams.set("_t", params._t);
